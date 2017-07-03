@@ -60,12 +60,12 @@
 	window.settings = window.settings || {};
 	var config = __webpack_require__(664);
 
-	config.setAPIURL(window.settings.apiurl ? window.settings.apiurl : '/api/'
+	config.setAPIURL(window.settings.apiurl ? window.settings.apiurl : '/api/');
 
 	//var jsonschemaeditor = require('json-schema-editor')
 	//var JSONEditor = require('json-editor');
 
-	);__webpack_require__(683);
+	__webpack_require__(683);
 	__webpack_require__(684);
 	__webpack_require__(685);
 
@@ -723,10 +723,6 @@
 	process.removeListener = noop;
 	process.removeAllListeners = noop;
 	process.emit = noop;
-	process.prependListener = noop;
-	process.prependOnceListener = noop;
-
-	process.listeners = function (name) { return [] }
 
 	process.binding = function (name) {
 	    throw new Error('process.binding is not supported');
@@ -98588,8 +98584,9 @@
 	var Stream = __webpack_require__(775);
 	/*</replacement>*/
 
+	var Buffer = __webpack_require__(745).Buffer;
 	/*<replacement>*/
-	var Buffer = __webpack_require__(776).Buffer;
+	var bufferShim = __webpack_require__(776);
 	/*</replacement>*/
 
 	/*<replacement>*/
@@ -98722,7 +98719,7 @@
 	  if (!state.objectMode && typeof chunk === 'string') {
 	    encoding = encoding || state.defaultEncoding;
 	    if (encoding !== state.encoding) {
-	      chunk = Buffer.from(chunk, encoding);
+	      chunk = bufferShim.from(chunk, encoding);
 	      encoding = '';
 	    }
 	  }
@@ -99042,7 +99039,7 @@
 
 	  var doEnd = (!pipeOpts || pipeOpts.end !== false) && dest !== process.stdout && dest !== process.stderr;
 
-	  var endFn = doEnd ? onend : unpipe;
+	  var endFn = doEnd ? onend : cleanup;
 	  if (state.endEmitted) processNextTick(endFn);else src.once('end', endFn);
 
 	  dest.on('unpipe', onunpipe);
@@ -99075,7 +99072,7 @@
 	    dest.removeListener('error', onerror);
 	    dest.removeListener('unpipe', onunpipe);
 	    src.removeListener('end', onend);
-	    src.removeListener('end', unpipe);
+	    src.removeListener('end', cleanup);
 	    src.removeListener('data', ondata);
 
 	    cleanedUp = true;
@@ -99432,7 +99429,7 @@
 	// This function is designed to be inlinable, so please take care when making
 	// changes to the function body.
 	function copyFromBuffer(n, list) {
-	  var ret = Buffer.allocUnsafe(n);
+	  var ret = bufferShim.allocUnsafe(n);
 	  var p = list.head;
 	  var c = 1;
 	  p.data.copy(ret);
@@ -99555,8 +99552,116 @@
 /* 776 */
 /***/ (function(module, exports, __webpack_require__) {
 
-	module.exports = __webpack_require__(745)
+	/* WEBPACK VAR INJECTION */(function(global) {'use strict';
 
+	var buffer = __webpack_require__(745);
+	var Buffer = buffer.Buffer;
+	var SlowBuffer = buffer.SlowBuffer;
+	var MAX_LEN = buffer.kMaxLength || 2147483647;
+	exports.alloc = function alloc(size, fill, encoding) {
+	  if (typeof Buffer.alloc === 'function') {
+	    return Buffer.alloc(size, fill, encoding);
+	  }
+	  if (typeof encoding === 'number') {
+	    throw new TypeError('encoding must not be number');
+	  }
+	  if (typeof size !== 'number') {
+	    throw new TypeError('size must be a number');
+	  }
+	  if (size > MAX_LEN) {
+	    throw new RangeError('size is too large');
+	  }
+	  var enc = encoding;
+	  var _fill = fill;
+	  if (_fill === undefined) {
+	    enc = undefined;
+	    _fill = 0;
+	  }
+	  var buf = new Buffer(size);
+	  if (typeof _fill === 'string') {
+	    var fillBuf = new Buffer(_fill, enc);
+	    var flen = fillBuf.length;
+	    var i = -1;
+	    while (++i < size) {
+	      buf[i] = fillBuf[i % flen];
+	    }
+	  } else {
+	    buf.fill(_fill);
+	  }
+	  return buf;
+	}
+	exports.allocUnsafe = function allocUnsafe(size) {
+	  if (typeof Buffer.allocUnsafe === 'function') {
+	    return Buffer.allocUnsafe(size);
+	  }
+	  if (typeof size !== 'number') {
+	    throw new TypeError('size must be a number');
+	  }
+	  if (size > MAX_LEN) {
+	    throw new RangeError('size is too large');
+	  }
+	  return new Buffer(size);
+	}
+	exports.from = function from(value, encodingOrOffset, length) {
+	  if (typeof Buffer.from === 'function' && (!global.Uint8Array || Uint8Array.from !== Buffer.from)) {
+	    return Buffer.from(value, encodingOrOffset, length);
+	  }
+	  if (typeof value === 'number') {
+	    throw new TypeError('"value" argument must not be a number');
+	  }
+	  if (typeof value === 'string') {
+	    return new Buffer(value, encodingOrOffset);
+	  }
+	  if (typeof ArrayBuffer !== 'undefined' && value instanceof ArrayBuffer) {
+	    var offset = encodingOrOffset;
+	    if (arguments.length === 1) {
+	      return new Buffer(value);
+	    }
+	    if (typeof offset === 'undefined') {
+	      offset = 0;
+	    }
+	    var len = length;
+	    if (typeof len === 'undefined') {
+	      len = value.byteLength - offset;
+	    }
+	    if (offset >= value.byteLength) {
+	      throw new RangeError('\'offset\' is out of bounds');
+	    }
+	    if (len > value.byteLength - offset) {
+	      throw new RangeError('\'length\' is out of bounds');
+	    }
+	    return new Buffer(value.slice(offset, offset + len));
+	  }
+	  if (Buffer.isBuffer(value)) {
+	    var out = new Buffer(value.length);
+	    value.copy(out, 0, 0, value.length);
+	    return out;
+	  }
+	  if (value) {
+	    if (Array.isArray(value) || (typeof ArrayBuffer !== 'undefined' && value.buffer instanceof ArrayBuffer) || 'length' in value) {
+	      return new Buffer(value);
+	    }
+	    if (value.type === 'Buffer' && Array.isArray(value.data)) {
+	      return new Buffer(value.data);
+	    }
+	  }
+
+	  throw new TypeError('First argument must be a string, Buffer, ' + 'ArrayBuffer, Array, or array-like object.');
+	}
+	exports.allocUnsafeSlow = function allocUnsafeSlow(size) {
+	  if (typeof Buffer.allocUnsafeSlow === 'function') {
+	    return Buffer.allocUnsafeSlow(size);
+	  }
+	  if (typeof size !== 'number') {
+	    throw new TypeError('size must be a number');
+	  }
+	  if (size >= MAX_LEN) {
+	    throw new RangeError('size is too large');
+	  }
+	  return new SlowBuffer(size);
+	}
+
+	/* WEBPACK VAR INJECTION */}.call(exports, (function() { return this; }())))
 
 /***/ }),
 /* 777 */
@@ -99684,9 +99789,9 @@
 
 	'use strict';
 
+	var Buffer = __webpack_require__(745).Buffer;
 	/*<replacement>*/
-
-	var Buffer = __webpack_require__(776).Buffer;
+	var bufferShim = __webpack_require__(776);
 	/*</replacement>*/
 
 	module.exports = BufferList;
@@ -99734,9 +99839,9 @@
 	};
 
 	BufferList.prototype.concat = function (n) {
-	  if (this.length === 0) return Buffer.alloc(0);
+	  if (this.length === 0) return bufferShim.alloc(0);
 	  if (this.length === 1) return this.head.data;
-	  var ret = Buffer.allocUnsafe(n >>> 0);
+	  var ret = bufferShim.allocUnsafe(n >>> 0);
 	  var p = this.head;
 	  var i = 0;
 	  while (p) {
@@ -99868,8 +99973,9 @@
 	var Stream = __webpack_require__(775);
 	/*</replacement>*/
 
+	var Buffer = __webpack_require__(745).Buffer;
 	/*<replacement>*/
-	var Buffer = __webpack_require__(776).Buffer;
+	var bufferShim = __webpack_require__(776);
 	/*</replacement>*/
 
 	util.inherits(Writable, Stream);
@@ -100125,7 +100231,7 @@
 
 	function decodeChunk(state, chunk, encoding) {
 	  if (!state.objectMode && state.decodeStrings !== false && typeof chunk === 'string') {
-	    chunk = Buffer.from(chunk, encoding);
+	    chunk = bufferShim.from(chunk, encoding);
 	  }
 	  return chunk;
 	}
@@ -100708,7 +100814,8 @@
 
 	'use strict';
 
-	var Buffer = __webpack_require__(776).Buffer;
+	var Buffer = __webpack_require__(745).Buffer;
+	var bufferShim = __webpack_require__(776);
 
 	var isEncoding = Buffer.isEncoding || function (encoding) {
 	  encoding = '' + encoding;
@@ -100785,7 +100892,7 @@
 	  }
 	  this.lastNeed = 0;
 	  this.lastTotal = 0;
-	  this.lastChar = Buffer.allocUnsafe(nb);
+	  this.lastChar = bufferShim.allocUnsafe(nb);
 	}
 
 	StringDecoder.prototype.write = function (buf) {
