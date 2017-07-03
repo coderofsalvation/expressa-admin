@@ -35,7 +35,7 @@ var Collection = React.createClass({
 			text += this.state.data.map(function(v) {
 				return Object.keys(this.state.schema.properties).map(function(key) {
 					var value = v[key] || ''
-					return '"' + String(value).replace(/"/g, '""') + '"'
+					return '"' + value.replace(/"/g, '""') + '"'
 				}.bind(this))
 			}.bind(this)).join('\n')
 			var blob = new Blob([text], {type: "text/plain;charset=utf-8"});
@@ -51,6 +51,11 @@ var Collection = React.createClass({
 			this.state.schema.listing = this.state.schema.listing || {};
 			this.state.listedProperties = this.state.schema.listing.columns || Object.keys(this.state.schema.properties);
 
+			var shouldDisplay = ( property ) => {
+			  if( this.state.schema.listing && this.state.schema.listing.columns && this.state.schema.listing.columns.indexOf(property) == -1 ) return false
+			  return true
+			}
+
 			var data = this.state.data.map(function(v) {
 				v['_type'] = self.props.params.name;
 				return v;
@@ -62,15 +67,19 @@ var Collection = React.createClass({
 				</td></tr>;
 			}
 			var contents = <table className="table table-striped table-hover table-condensed">
-				<thead><tr>
+				<thead><tr><td key="_id">id</td>
 				{self.state.listedProperties.map(function(name, i) {
+					if( !shouldDisplay( name ) )  return 
 					return <td key={name}>{name}</td>
 				})}
 				</tr></thead>
 				<tbody>
 					{data.map(function(row, i) {
+						var linked = false
 						return <tr key={i}>
+							<td key="_id">{row._id}</td>
 							{this.state.listedProperties.map(function(name, i) {
+								if( !shouldDisplay( name ) ) return 
 								var value = dotty.get(row, name)
 								if (typeof value == 'undefined') {
 									value = ''
@@ -79,7 +88,8 @@ var Collection = React.createClass({
 									value = jsonToHuman(value)
 								}
 								var text = typeof value == "undefined" || value.length < 50 ? value : value.substring(0, 45)+'...';
-								if (i == 0) {
+								if (!linked) {
+									linked = true
 									return <td key={i}><Link to={'/edit/'+row['_type']+'/'+row._id}>{text||'<empty>'}</Link></td>
 								} else {
 									return <td key={i}>{text}</td>

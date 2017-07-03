@@ -92819,7 +92819,7 @@
 				text += this.state.data.map(function (v) {
 					return Object.keys(this.state.schema.properties).map(function (key) {
 						var value = v[key] || '';
-						return '"' + String(value).replace(/"/g, '""') + '"';
+						return '"' + value.replace(/"/g, '""') + '"';
 					}.bind(this));
 				}.bind(this)).join('\n');
 				var blob = new Blob([text], { type: "text/plain;charset=utf-8" });
@@ -92827,6 +92827,8 @@
 			}
 		},
 		render: function render() {
+			var _this = this;
+
 			var self = this;
 			var collection = this.props.params.name;
 			var contents = React.createElement('div', null);
@@ -92834,6 +92836,11 @@
 			if (this.state && this.state.data) {
 				this.state.schema.listing = this.state.schema.listing || {};
 				this.state.listedProperties = this.state.schema.listing.columns || Object.keys(this.state.schema.properties);
+
+				var shouldDisplay = function shouldDisplay(property) {
+					if (_this.state.schema.listing && _this.state.schema.listing.columns && _this.state.schema.listing.columns.indexOf(property) == -1) return false;
+					return true;
+				};
 
 				var data = this.state.data.map(function (v) {
 					v['_type'] = self.props.params.name;
@@ -92860,7 +92867,13 @@
 						React.createElement(
 							'tr',
 							null,
+							React.createElement(
+								'td',
+								{ key: '_id' },
+								'id'
+							),
 							self.state.listedProperties.map(function (name, i) {
+								if (!shouldDisplay(name)) return;
 								return React.createElement(
 									'td',
 									{ key: name },
@@ -92873,10 +92886,17 @@
 						'tbody',
 						null,
 						data.map(function (row, i) {
+							var linked = false;
 							return React.createElement(
 								'tr',
 								{ key: i },
+								React.createElement(
+									'td',
+									{ key: '_id' },
+									row._id
+								),
 								this.state.listedProperties.map(function (name, i) {
+									if (!shouldDisplay(name)) return;
 									var value = dotty.get(row, name);
 									if (typeof value == 'undefined') {
 										value = '';
@@ -92885,7 +92905,8 @@
 										value = jsonToHuman(value);
 									}
 									var text = typeof value == "undefined" || value.length < 50 ? value : value.substring(0, 45) + '...';
-									if (i == 0) {
+									if (!linked) {
+										linked = true;
 										return React.createElement(
 											'td',
 											{ key: i },
