@@ -87,7 +87,7 @@ var Collection = React.createClass({
 								if (typeof value != 'string') {
 									value = jsonToHuman(value)
 								}
-								var text = typeof value == "undefined" || value.length < 50 ? value : value.substring(0, 45)+'...';
+								var text = typeof value == "undefined" || value
 								if (!linked) {
 									linked = true
 									return <td key={i}><Link to={'/edit/'+row['_type']+'/'+row._id}>{text||'<empty>'}</Link></td>
