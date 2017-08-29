@@ -223,7 +223,7 @@
 							'ul',
 							{ className: 'list-group' },
 							this.state.collections.map(function (collection) {
-								if (config.production && ["role", "collection", "settings"].indexOf(collection._id) != -1) return false;
+								if (config.production && ["role", "collection"].indexOf(collection._id) != -1) return false;
 								return React.createElement(CollectionEntry, { key: collection._id, name: collection._id });
 							})
 						),
